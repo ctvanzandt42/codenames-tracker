@@ -26,9 +26,15 @@ export default function Dashboard() {
       .eq('games.team_id', profile.team_id)
       .order('games(played_at)', { ascending: false })
 
+    // Load stat seeds
+    const { data: seeds } = await supabase
+      .from('stat_seeds')
+      .select('*, profiles(display_name)')
+      .eq('team_id', profile.team_id)
+
     // Filter out any nulls (cross-team noise from RLS)
     const filtered = (gamePlayers || []).filter(gp => gp.games?.team_id === profile.team_id)
-    setStats(computeStats(filtered))
+    setStats(computeStats(filtered, seeds || []))
 
     // Load recent games with player breakdown
     const { data: games } = await supabase

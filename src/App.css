@@ -610,3 +610,87 @@ body {
 .inline-btn { display: inline-block; width: auto; padding: 10px 24px; }
 
 select option { background: var(--surface2); color: var(--text); }
+
+/* ============================================================
+   SEED STATS TABLE
+============================================================ */
+.seed-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.seed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.seed-table thead tr {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.seed-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.seed-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.seed-table tbody tr:last-child td { border-bottom: none; }
+.seed-row { background: var(--surface); transition: background 0.12s; }
+.seed-row.dirty { background: rgba(232, 197, 71, 0.04); }
+
+.seed-name {
+  font-weight: 600;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+}
+
+.seed-input {
+  width: 56px;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.seed-input:focus { border-color: var(--accent); }
+
+.seed-select {
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.seed-select:focus { border-color: var(--accent); }
+
+.save-seed-btn { white-space: nowrap; }
+.dirty-btn {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
