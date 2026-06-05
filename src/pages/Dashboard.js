@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState([])
   const [recentGames, setRecentGames] = useState([])
   const [loading, setLoading] = useState(true)
+  const [deletingGame, setDeletingGame] = useState(null)
 
   useEffect(() => {
     if (profile?.team_id) {
@@ -52,6 +53,14 @@ export default function Dashboard() {
     setRecentGames(games || [])
 
     setLoading(false)
+  }
+
+  async function deleteGame(gameId) {
+    if (!window.confirm('Delete this game? Stats will update automatically.')) return
+    setDeletingGame(gameId)
+    await supabase.from('games').delete().eq('id', gameId)
+    await loadData()
+    setDeletingGame(null)
   }
 
   const teamName = profile?.teams?.name ?? 'Your Team'
@@ -141,10 +150,18 @@ export default function Dashboard() {
                     const bluePlayers = game.game_players?.filter(p => p.side === 'blue') ?? []
                     const winner = game.game_players?.find(p => p.won)?.side
                     return (
-                      <div key={game.id} className="game-card">
+                      <div key={game.id} className={`game-card ${deletingGame === game.id ? 'game-card-deleting' : ''}`}>
                         <div className="game-card-date">
                           {new Date(game.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           {winner && <span className={`winner-tag ${winner}`}>{winner.toUpperCase()} wins</span>}
+                          {profile?.is_admin && (
+                            <button
+                              className="delete-game-btn"
+                              onClick={() => deleteGame(game.id)}
+                              disabled={deletingGame === game.id}
+                              title="Delete game"
+                            >{deletingGame === game.id ? '…' : '✕'}</button>
+                          )}
                         </div>
                         <div className="game-sides">
                           <div className="game-side red-side">

@@ -742,3 +742,34 @@ select option { background: var(--surface2); color: var(--text); }
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ============================================================
+   DELETE GAME BUTTON
+============================================================ */
+.delete-game-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+.delete-game-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-dim);
+}
+.delete-game-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.game-card-deleting {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
