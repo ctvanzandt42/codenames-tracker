@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthProvider'
 
@@ -10,6 +10,16 @@ export default function Onboarding() {
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Auto-detect invite code from URL e.g. /?invite=ABC123
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('invite')
+    if (code) {
+      setInviteCode(code.toUpperCase())
+      setMode('join')
+    }
+  }, [])
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -74,7 +84,7 @@ export default function Onboarding() {
             <button className="btn-choice" onClick={() => setMode('join')}>
               <span>🤝</span>
               <strong>Join an existing team</strong>
-              <small>You'll need an invite code</small>
+              <small>You'll need an invite code or link</small>
             </button>
           </div>
         )}

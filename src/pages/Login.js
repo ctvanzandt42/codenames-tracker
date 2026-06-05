@@ -2,24 +2,18 @@ import { useState } from 'react'
 import { useAuth } from '../components/AuthProvider'
 
 export default function Login() {
-  const { signInWithGoogle, signInWithEmail } = useAuth()
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const { signInWithGoogle } = useAuth()
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleEmail(e) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    const { error } = await signInWithEmail(email)
-    setLoading(false)
-    if (error) setError(error.message)
-    else setSent(true)
-  }
 
   async function handleGoogle() {
-    const { error } = await signInWithGoogle()
+    // Preserve any invite code in the URL through the OAuth redirect
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('invite')
+    const redirectTo = code
+      ? `${window.location.origin}?invite=${code}`
+      : window.location.origin
+
+    const { error } = await signInWithGoogle(redirectTo)
     if (error) setError(error.message)
   }
 
@@ -32,38 +26,12 @@ export default function Login() {
           <p className="logo-sub">Team Tracker</p>
         </div>
 
-        {sent ? (
-          <div className="sent-message">
-            <span className="sent-icon">📬</span>
-            <h2>Check your email</h2>
-            <p>We sent a magic link to <strong>{email}</strong>. Click it to sign in — no password needed.</p>
-          </div>
-        ) : (
-          <>
-            <button className="btn-google" onClick={handleGoogle}>
-              <GoogleIcon />
-              Continue with Google
-            </button>
+        <button className="btn-google" onClick={handleGoogle}>
+          <GoogleIcon />
+          Continue with Google
+        </button>
 
-            <div className="divider"><span>or</span></div>
-
-            <form onSubmit={handleEmail}>
-              <input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                className="email-input"
-              />
-              <button type="submit" className="btn-magic" disabled={loading}>
-                {loading ? 'Sending…' : '✉️ Send magic link'}
-              </button>
-            </form>
-
-            {error && <p className="error-msg">{error}</p>}
-          </>
-        )}
+        {error && <p className="error-msg">{error}</p>}
       </div>
     </div>
   )

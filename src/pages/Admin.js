@@ -180,9 +180,13 @@ export default function Admin() {
     setTimeout(() => setMsg(''), 3000)
   }
 
-  async function copyInviteCode() {
-    await navigator.clipboard.writeText(profile.teams.invite_code)
-    flash('Invite code copied!')
+  function getJoinLink() {
+    return `${window.location.origin}?invite=${profile?.teams?.invite_code}`
+  }
+
+  async function copyJoinLink() {
+    await navigator.clipboard.writeText(getJoinLink())
+    flash('Join link copied!')
   }
 
   const activeMembers = members.filter(m => m.is_active)
@@ -340,15 +344,20 @@ export default function Admin() {
           </button>
         </section>
 
-        {/* ---- Invite Code ---- */}
+        {/* ---- Invite Link ---- */}
         <section className="log-section">
           <h2 className="section-title">Invite Members</h2>
-          <p className="muted">Share this code with anyone you want to join <strong>{profile?.teams?.name}</strong>.</p>
-          <div className="invite-code-display large" onClick={copyInviteCode}
-            title="Click to copy" style={{ marginTop: 12 }}>
-            {profile?.teams?.invite_code}
-            <span className="copy-hint">click to copy</span>
+          <p className="muted" style={{ marginBottom: 14 }}>
+            Send this link to anyone you want to join <strong>{profile?.teams?.name}</strong>.
+            They'll sign in with Google and land straight on the join screen.
+          </p>
+          <div className="join-link-row">
+            <code className="join-link-display">{getJoinLink()}</code>
+            <button className="action-btn" onClick={copyJoinLink}>Copy link</button>
           </div>
+          <p className="muted" style={{ marginTop: 10, fontSize: '0.8rem' }}>
+            Invite code: <strong>{profile?.teams?.invite_code}</strong> (for manual entry)
+          </p>
         </section>
 
       </main>

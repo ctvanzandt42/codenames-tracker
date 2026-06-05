@@ -59,17 +59,10 @@ export function AuthProvider({ children }) {
     if (user) await fetchProfile(user.id)
   }
 
-  async function signInWithGoogle() {
+  async function signInWithGoogle(redirectTo = window.location.origin) {
     return supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
-    })
-  }
-
-  async function signInWithEmail(email) {
-    return supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin }
+      options: { redirectTo }
     })
   }
 
@@ -78,7 +71,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signInWithEmail, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
