@@ -32,9 +32,15 @@ export default function Dashboard() {
       .select('*, profiles(display_name)')
       .eq('team_id', profile.team_id)
 
+    // Load all members (including inactive + ghosts) for display metadata
+    const { data: allMembers } = await supabase
+      .from('profiles')
+      .select('id, display_name, is_active, is_ghost')
+      .eq('team_id', profile.team_id)
+
     // Filter out any nulls (cross-team noise from RLS)
     const filtered = (gamePlayers || []).filter(gp => gp.games?.team_id === profile.team_id)
-    setStats(computeStats(filtered, seeds || []))
+    setStats(computeStats(filtered, seeds || [], allMembers || []))
 
     // Load recent games with player breakdown
     const { data: games } = await supabase
@@ -94,11 +100,15 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {stats.map((s, i) => (
-                        <tr key={s.profile_id} className={i === 0 ? 'top-row' : ''}>
+                        <tr key={s.profile_id} className={[i === 0 ? 'top-row' : '', !s.is_active ? 'inactive-row' : ''].filter(Boolean).join(' ')}>
                           <td className="rank-cell">
                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                           </td>
-                          <td className="name-cell">{s.display_name}</td>
+                          <td className="name-cell">
+                            {s.display_name}
+                            {!s.is_active && <span className="alumni-badge" title="No longer on team">alumni</span>}
+                            {s.is_ghost && <span className="ghost-badge" title="Manually added">👻</span>}
+                          </td>
                           <td><span className="wl">{s.w}-{s.l}</span></td>
                           <td>
                             <span className="win-pct">{s.winPct}%</span>

@@ -3,53 +3,60 @@
  *
  * Seeds represent historical totals entered by an admin before game logging
  * began. They contribute to W/L/SM counts. For streak:
- *   - If the member has real logged games, the streak is calculated purely
- *     from those (seeds are too coarse to extend a streak reliably).
- *   - If the member has NO logged games yet, the seeded streak is shown as-is.
+ *   - If the member has real logged games, streak is calculated from those.
+ *   - If the member has NO logged games yet, the seeded streak is shown.
  *
  * @param {Array} gamePlayers  - rows from game_players joined with profiles + games
  * @param {Array} seeds        - rows from stat_seeds (may be empty)
+ * @param {Array} allMembers   - all profiles on the team (catches seed-only / ghost members)
  */
-export function computeStats(gamePlayers, seeds = []) {
-  // Index seeds by profile_id for fast lookup
+export function computeStats(gamePlayers, seeds = [], allMembers = []) {
   const seedMap = {}
-  for (const s of seeds) {
-    seedMap[s.profile_id] = s
+  for (const s of seeds) seedMap[s.profile_id] = s
+
+  const memberMeta = {}
+  for (const m of allMembers) {
+    memberMeta[m.id] = {
+      display_name: m.display_name ?? 'Unknown',
+      is_active: m.is_active ?? true,
+      is_ghost: m.is_ghost ?? false,
+    }
   }
 
-  // Collect all profile ids from both sources
-  const allProfiles = {}
+  const byProfile = {}
 
   for (const gp of gamePlayers) {
     const pid = gp.profile_id
-    if (!allProfiles[pid]) {
-      allProfiles[pid] = {
+    if (!byProfile[pid]) {
+      byProfile[pid] = {
         profile_id: pid,
-        display_name: gp.profiles?.display_name ?? 'Unknown',
+        display_name: gp.profiles?.display_name ?? memberMeta[pid]?.display_name ?? 'Unknown',
+        is_active: memberMeta[pid]?.is_active ?? true,
+        is_ghost: memberMeta[pid]?.is_ghost ?? false,
         entries: [],
       }
     }
-    allProfiles[pid].entries.push(gp)
+    byProfile[pid].entries.push(gp)
   }
 
-  // Include any seeded members who haven't logged a real game yet
-  for (const s of seeds) {
-    if (!allProfiles[s.profile_id]) {
-      allProfiles[s.profile_id] = {
-        profile_id: s.profile_id,
-        display_name: s.profiles?.display_name ?? 'Unknown',
+  // Include seed-only and ghost members who may have no logged games
+  for (const m of allMembers) {
+    if (!byProfile[m.id]) {
+      byProfile[m.id] = {
+        profile_id: m.id,
+        display_name: m.display_name ?? 'Unknown',
+        is_active: m.is_active ?? true,
+        is_ghost: m.is_ghost ?? false,
         entries: [],
       }
     }
   }
 
-  return Object.values(allProfiles).map(({ profile_id, display_name, entries }) => {
+  return Object.values(byProfile).map(({ profile_id, display_name, is_active, is_ghost, entries }) => {
     const seed = seedMap[profile_id]
 
-    // Sort real games chronologically
     entries.sort((a, b) => new Date(a.games?.played_at) - new Date(b.games?.played_at))
 
-    // Tally real games
     let w = 0, l = 0, smW = 0, smL = 0
     for (const e of entries) {
       if (e.won) w++; else l++
@@ -58,7 +65,6 @@ export function computeStats(gamePlayers, seeds = []) {
       }
     }
 
-    // Add seed totals
     if (seed) {
       w   += seed.w    ?? 0
       l   += seed.l    ?? 0
@@ -66,12 +72,9 @@ export function computeStats(gamePlayers, seeds = []) {
       smL += seed.sm_l ?? 0
     }
 
-    // Streak logic
     let streakLabel = '—'
     if (entries.length > 0) {
-      // Real games exist — calculate streak from those only
-      let streak = 0
-      let streakType = null
+      let streak = 0, streakType = null
       for (let i = entries.length - 1; i >= 0; i--) {
         const result = entries[i].won
         if (streakType === null) { streakType = result; streak = 1 }
@@ -79,22 +82,23 @@ export function computeStats(gamePlayers, seeds = []) {
         else break
       }
       streakLabel = `${streakType ? 'W' : 'L'}${streak}`
-    } else if (seed && seed.streak_count > 0 && seed.streak_type) {
-      // No real games yet — show the seeded streak
+    } else if (seed?.streak_count > 0 && seed?.streak_type) {
       streakLabel = `${seed.streak_type}${seed.streak_count}`
     }
 
     return {
       profile_id,
       display_name,
-      w,
-      l,
-      smW,
-      smL,
+      is_active,
+      is_ghost,
+      w, l, smW, smL,
       streak: streakLabel,
       gamesPlayed: w + l,
       winPct: w + l > 0 ? Math.round((w / (w + l)) * 100) : 0,
-      hasRealGames: entries.length > 0,
     }
-  }).sort((a, b) => b.winPct - a.winPct || b.gamesPlayed - a.gamesPlayed)
+  }).sort((a, b) => {
+    // Active members first, then inactive
+    if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
+    return b.winPct - a.winPct || b.gamesPlayed - a.gamesPlayed
+  })
 }
