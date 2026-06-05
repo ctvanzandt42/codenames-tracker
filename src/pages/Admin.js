@@ -85,9 +85,11 @@ export default function Admin() {
     if (!ghostName.trim()) return
     setGhostAdding(true)
 
+    const newId = crypto.randomUUID()
     const { data, error } = await supabase
       .from('profiles')
       .insert({
+        id: newId,
         display_name: ghostName.trim(),
         team_id: profile.team_id,
         is_ghost: true,
