@@ -19,53 +19,7 @@ create table public.team_members (
 );
 
 -- ------------------------------------------------------------
--- 2. Migrate existing memberships
--- ------------------------------------------------------------
-
-insert into public.team_members (team_id, profile_id, is_admin, is_active, joined_at)
-select team_id, id, coalesce(is_admin, false), coalesce(is_active, true), created_at
-from public.profiles
-where team_id is not null;
-
--- ------------------------------------------------------------
--- 3. Drop now-redundant columns from profiles
--- ------------------------------------------------------------
-
-alter table public.profiles drop column team_id;
-alter table public.profiles drop column is_admin;
-alter table public.profiles drop column is_active;
-
--- ------------------------------------------------------------
--- 4. Replace helper functions
--- ------------------------------------------------------------
-
-drop function if exists public.my_team_id();
-drop function if exists public.i_am_admin();
-
-create or replace function public.my_team_ids()
-returns setof uuid
-language sql stable security definer as $$
-  select team_id from public.team_members where profile_id = auth.uid();
-$$;
-
-create or replace function public.i_am_admin_of(check_team_id uuid)
-returns boolean
-language sql stable security definer as $$
-  select coalesce(
-    (select is_admin from public.team_members
-     where profile_id = auth.uid() and team_id = check_team_id limit 1),
-    false
-  );
-$$;
-
--- ------------------------------------------------------------
--- 5. Enable RLS on new table
--- ------------------------------------------------------------
-
-alter table public.team_members enable row level security;
-
--- ------------------------------------------------------------
--- 6. Drop all old RLS policies
+-- 2. Drop old RLS policies first (they reference profiles.team_id)
 -- ------------------------------------------------------------
 
 drop policy if exists "Authenticated users can create a team"      on public.teams;
@@ -89,6 +43,52 @@ drop policy if exists "Team members can view seeds"                on public.sta
 drop policy if exists "Admins can insert seeds"                    on public.stat_seeds;
 drop policy if exists "Admins can update seeds"                    on public.stat_seeds;
 drop policy if exists "Admins can delete seeds"                    on public.stat_seeds;
+
+-- ------------------------------------------------------------
+-- 3. Migrate existing memberships
+-- ------------------------------------------------------------
+
+insert into public.team_members (team_id, profile_id, is_admin, is_active, joined_at)
+select team_id, id, coalesce(is_admin, false), coalesce(is_active, true), created_at
+from public.profiles
+where team_id is not null;
+
+-- ------------------------------------------------------------
+-- 4. Drop now-redundant columns from profiles
+-- ------------------------------------------------------------
+
+alter table public.profiles drop column team_id;
+alter table public.profiles drop column is_admin;
+alter table public.profiles drop column is_active;
+
+-- ------------------------------------------------------------
+-- 5. Replace helper functions
+-- ------------------------------------------------------------
+
+drop function if exists public.my_team_id();
+drop function if exists public.i_am_admin();
+
+create or replace function public.my_team_ids()
+returns setof uuid
+language sql stable security definer as $$
+  select team_id from public.team_members where profile_id = auth.uid();
+$$;
+
+create or replace function public.i_am_admin_of(check_team_id uuid)
+returns boolean
+language sql stable security definer as $$
+  select coalesce(
+    (select is_admin from public.team_members
+     where profile_id = auth.uid() and team_id = check_team_id limit 1),
+    false
+  );
+$$;
+
+-- ------------------------------------------------------------
+-- 6. Enable RLS on new table
+-- ------------------------------------------------------------
+
+alter table public.team_members enable row level security;
 
 -- ------------------------------------------------------------
 -- 7. New RLS policies
