@@ -16,8 +16,9 @@ export default function Onboarding() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const code = params.get('invite')
+    const code = params.get('invite') || localStorage.getItem('pendingInvite')
     if (code) {
+      localStorage.removeItem('pendingInvite')
       setInviteCode(code.toUpperCase())
       setMode('join')
     }

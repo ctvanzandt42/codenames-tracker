@@ -8,14 +8,13 @@ export default function Login() {
   const [error, setError] = useState('')
 
   async function handleGoogle() {
-    // Preserve any invite code in the URL through the OAuth redirect
     const params = new URLSearchParams(window.location.search)
     const code = params.get('invite')
-    const redirectTo = code
-      ? `${window.location.origin}?invite=${code}`
-      : window.location.origin
+    // Stash in localStorage — Supabase's PKCE flow can strip query params
+    // during the history.replaceState after the code exchange
+    if (code) localStorage.setItem('pendingInvite', code)
 
-    const { error } = await signInWithGoogle(redirectTo)
+    const { error } = await signInWithGoogle(window.location.origin)
     if (error) setError(error.message)
   }
 
