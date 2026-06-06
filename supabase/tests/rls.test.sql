@@ -1,4 +1,4 @@
--- RLS policy tests for codenames-tracker.
+-- RLS policy tests for codenames-tracker (multi-team schema).
 -- Run locally: supabase test db
 -- All test data is inserted inside a transaction that is rolled back at the end.
 
@@ -16,11 +16,17 @@ insert into public.teams (id, name, invite_code) values
 -- Admin A   — Team A, admin
 -- Member B  — Team B, not admin
 -- Ghost A   — Team A, angel (no auth.users row needed — profiles has no FK)
-insert into public.profiles (id, display_name, team_id, is_admin, is_active, is_angel) values
-  ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, 'Member A', 'aaaaaaaa-0000-0000-0000-000000000001', false, true, false),
-  ('bbbbbbbb-0000-0000-0000-000000000002'::uuid, 'Admin A',  'aaaaaaaa-0000-0000-0000-000000000001', true,  true, false),
-  ('bbbbbbbb-0000-0000-0000-000000000003'::uuid, 'Member B', 'aaaaaaaa-0000-0000-0000-000000000002', false, true, false),
-  ('cccccccc-0000-0000-0000-000000000001'::uuid, 'Ghost A',  'aaaaaaaa-0000-0000-0000-000000000001', false, true, true);
+insert into public.profiles (id, display_name, is_angel) values
+  ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, 'Member A', false),
+  ('bbbbbbbb-0000-0000-0000-000000000002'::uuid, 'Admin A',  false),
+  ('bbbbbbbb-0000-0000-0000-000000000003'::uuid, 'Member B', false),
+  ('cccccccc-0000-0000-0000-000000000001'::uuid, 'Ghost A',  true);
+
+insert into public.team_members (team_id, profile_id, is_admin, is_active) values
+  ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'bbbbbbbb-0000-0000-0000-000000000001'::uuid, false, true),
+  ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'bbbbbbbb-0000-0000-0000-000000000002'::uuid, true,  true),
+  ('aaaaaaaa-0000-0000-0000-000000000002'::uuid, 'bbbbbbbb-0000-0000-0000-000000000003'::uuid, false, true),
+  ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000001'::uuid, false, true);
 
 -- One game per team
 insert into public.games (id, team_id, played_at, created_by) values
@@ -44,12 +50,12 @@ select is(
   'Member sees all profiles on their team including ghost'
 );
 
--- 2. Member A sees zero profiles from Team B
+-- 2. Member A cannot see Member B (different team)
 select is(
   (select count(*)::int from public.profiles
-    where team_id = 'aaaaaaaa-0000-0000-0000-000000000002'::uuid),
+    where id = 'bbbbbbbb-0000-0000-0000-000000000003'::uuid),
   0,
-  'Member sees zero profiles from another team'
+  'Member cannot see a profile from another team'
 );
 
 reset role;

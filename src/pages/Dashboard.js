@@ -6,73 +6,75 @@ import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader'
 
 export default function Dashboard() {
-  const { profile, signOut } = useAuth()
-  const [stats, setStats] = useState([])
-  const [recentGames, setRecentGames] = useState([])
+  const { profile, memberships, isAdminOf, signOut } = useAuth()
+  const [teamData, setTeamData] = useState({}) // keyed by team_id
   const [loading, setLoading] = useState(true)
-  const [deletingGame, setDeletingGame] = useState(null)
+
+  const isAnyAdmin = memberships?.some(m => m.is_admin)
 
   useEffect(() => {
-    if (profile?.team_id) {
-      loadData()
-    }
-  }, [profile])
+    if (memberships?.length) loadAll()
+  }, [memberships])
 
-  async function loadData() {
+  async function loadAll() {
     setLoading(true)
-
-    // Load all game players for this team, with nested game + profile data
-    const { data: gamePlayers } = await supabase
-      .from('game_players')
-      .select('*, profiles(display_name), games(played_at, team_id)')
-      .eq('games.team_id', profile.team_id)
-      .order('games(played_at)', { ascending: false })
-
-    // Load stat seeds
-    const { data: seeds } = await supabase
-      .from('stat_seeds')
-      .select('*, profiles(display_name)')
-      .eq('team_id', profile.team_id)
-
-    // Load all members (including inactive + ghosts) for display metadata
-    const { data: allMembers } = await supabase
-      .from('profiles')
-      .select('id, display_name, is_active, is_angel')
-      .eq('team_id', profile.team_id)
-
-    // Filter out any nulls (cross-team noise from RLS)
-    const filtered = (gamePlayers || []).filter(gp => gp.games?.team_id === profile.team_id)
-    setStats(computeStats(filtered, seeds || [], allMembers || []))
-
-    // Load recent games with player breakdown
-    const { data: games } = await supabase
-      .from('games')
-      .select('*, game_players(*, profiles(display_name))')
-      .eq('team_id', profile.team_id)
-      .order('played_at', { ascending: false })
-      .limit(5)
-    setRecentGames(games || [])
-
+    const results = await Promise.all(memberships.map(m => loadTeam(m.team_id)))
+    const map = {}
+    memberships.forEach((m, i) => { map[m.team_id] = results[i] })
+    setTeamData(map)
     setLoading(false)
   }
 
-  async function deleteGame(gameId) {
-    if (!window.confirm('Delete this game? Stats will update automatically.')) return
-    setDeletingGame(gameId)
-    await supabase.from('games').delete().eq('id', gameId)
-    await loadData()
-    setDeletingGame(null)
+  async function loadTeam(teamId) {
+    const [{ data: gamePlayers }, { data: seeds }, { data: allMembers }, { data: games }] =
+      await Promise.all([
+        supabase
+          .from('game_players')
+          .select('*, profiles(display_name), games(played_at, team_id)')
+          .eq('games.team_id', teamId)
+          .order('games(played_at)', { ascending: false }),
+        supabase
+          .from('stat_seeds')
+          .select('*, profiles(display_name)')
+          .eq('team_id', teamId),
+        supabase
+          .from('profiles')
+          .select('id, display_name, is_angel')
+          .in('id', await teamMemberIds(teamId)),
+        supabase
+          .from('games')
+          .select('*, game_players(*, profiles(display_name))')
+          .eq('team_id', teamId)
+          .order('played_at', { ascending: false })
+          .limit(5),
+      ])
+
+    const filtered = (gamePlayers || []).filter(gp => gp.games?.team_id === teamId)
+    return {
+      stats: computeStats(filtered, seeds || [], allMembers || []),
+      recentGames: games || [],
+    }
   }
 
-  const teamName = profile?.teams?.name ?? 'Your Team'
-  const inviteCode = profile?.teams?.invite_code
+  async function teamMemberIds(teamId) {
+    const { data } = await supabase
+      .from('team_members')
+      .select('profile_id')
+      .eq('team_id', teamId)
+    return (data || []).map(r => r.profile_id)
+  }
+
+  async function deleteGame(gameId, teamId) {
+    if (!window.confirm('Delete this game? Stats will update automatically.')) return
+    await supabase.from('games').delete().eq('id', gameId)
+    const refreshed = await loadTeam(teamId)
+    setTeamData(prev => ({ ...prev, [teamId]: refreshed }))
+  }
 
   return (
     <div className="app-shell">
-      <AppHeader title={teamName}>
-        {profile?.is_admin && (
-          <Link to="/admin" className="nav-link">Admin</Link>
-        )}
+      <AppHeader title="Codenames">
+        {isAnyAdmin && <Link to="/admin" className="nav-link">Admin</Link>}
         <Link to="/history" className="nav-link">History</Link>
         <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
         <button onClick={signOut} className="nav-link sign-out-btn">Sign out</button>
@@ -82,119 +84,133 @@ export default function Dashboard() {
         {loading ? (
           <div className="loading-state">Loading stats…</div>
         ) : (
-          <>
-            <section className="leaderboard-section">
-              <h2 className="section-title">Leaderboard</h2>
-              {stats.length === 0 ? (
-                <div className="empty-state">
-                  <p>No games logged yet.</p>
-                  <Link to="/log" className="btn-magic inline-btn">Log your first game →</Link>
-                </div>
-              ) : (
-                <div className="leaderboard-table-wrap">
-                  <table className="leaderboard-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Player</th>
-                        <th>W-L</th>
-                        <th>Win%</th>
-                        <th>SM W-L</th>
-                        <th>Streak</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.map((s, i) => (
-                        <tr key={s.profile_id} className={[i === 0 ? 'top-row' : '', !s.is_active ? 'inactive-row' : ''].filter(Boolean).join(' ')}>
-                          <td className="rank-cell">
-                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
-                          </td>
-                          <td className="name-cell">
-                            {s.display_name}
-                            {!s.is_active && <span className="emeritus-badge" title="No longer on team">emeritus</span>}
-                            {s.is_angel && <span className="angel-badge" title="Manually added">😇</span>}
-                          </td>
-                          <td><span className="wl">{s.w}-{s.l}</span></td>
-                          <td>
-                            <span className="win-pct">{s.winPct}%</span>
-                            <div className="pct-bar">
-                              <div className="pct-fill" style={{ width: `${s.winPct}%` }} />
+          memberships.map(membership => {
+            const team = membership.teams
+            const data = teamData[membership.team_id] || { stats: [], recentGames: [] }
+            const inviteCode = team?.invite_code
+
+            return (
+              <div key={membership.team_id} className="team-section-block">
+                <h2 className="team-section-heading">{team?.name}</h2>
+
+                {/* Leaderboard */}
+                <section className="leaderboard-section">
+                  <h3 className="section-title">Leaderboard</h3>
+                  {data.stats.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No games logged yet.</p>
+                      <Link to="/log" className="btn-magic inline-btn">Log your first game →</Link>
+                    </div>
+                  ) : (
+                    <div className="leaderboard-table-wrap">
+                      <table className="leaderboard-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Player</th>
+                            <th>W-L</th>
+                            <th>Win%</th>
+                            <th>SM W-L</th>
+                            <th>Streak</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.stats.map((s, i) => (
+                            <tr key={s.profile_id} className={[i === 0 ? 'top-row' : '', !s.is_active ? 'inactive-row' : ''].filter(Boolean).join(' ')}>
+                              <td className="rank-cell">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                              </td>
+                              <td className="name-cell">
+                                {s.display_name}
+                                {!s.is_active && <span className="emeritus-badge" title="No longer on team">emeritus</span>}
+                                {s.is_angel && <span className="angel-badge" title="Manually added">😇</span>}
+                              </td>
+                              <td><span className="wl">{s.w}-{s.l}</span></td>
+                              <td>
+                                <span className="win-pct">{s.winPct}%</span>
+                                <div className="pct-bar">
+                                  <div className="pct-fill" style={{ width: `${s.winPct}%` }} />
+                                </div>
+                              </td>
+                              <td className="sm-cell">{s.smW}-{s.smL}</td>
+                              <td>
+                                <span className={`streak-badge ${s.streak.startsWith('W') ? 'streak-w' : s.streak.startsWith('L') ? 'streak-l' : ''}`}>
+                                  {s.streak}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                {/* Recent Games */}
+                <section className="recent-section">
+                  <h3 className="section-title">Recent Games</h3>
+                  {data.recentGames.length === 0 ? (
+                    <p className="muted">No games yet.</p>
+                  ) : (
+                    <div className="game-cards">
+                      {data.recentGames.map(game => {
+                        const redPlayers = game.game_players?.filter(p => p.side === 'red') ?? []
+                        const bluePlayers = game.game_players?.filter(p => p.side === 'blue') ?? []
+                        const winner = game.game_players?.find(p => p.won)?.side
+                        return (
+                          <div key={game.id} className="game-card">
+                            <div className="game-card-date">
+                              {new Date(game.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              {winner && <span className={`winner-tag ${winner}`}>{winner.toUpperCase()} wins</span>}
+                              {isAdminOf(membership.team_id) && (
+                                <button
+                                  className="delete-game-btn"
+                                  onClick={() => deleteGame(game.id, membership.team_id)}
+                                  title="Delete game"
+                                >✕</button>
+                              )}
                             </div>
-                          </td>
-                          <td className="sm-cell">{s.smW}-{s.smL}</td>
-                          <td>
-                            <span className={`streak-badge ${s.streak.startsWith('W') ? 'streak-w' : s.streak.startsWith('L') ? 'streak-l' : ''}`}>
-                              {s.streak}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="recent-section">
-              <h2 className="section-title">Recent Games</h2>
-              {recentGames.length === 0 ? (
-                <p className="muted">No games yet.</p>
-              ) : (
-                <div className="game-cards">
-                  {recentGames.map(game => {
-                    const redPlayers = game.game_players?.filter(p => p.side === 'red') ?? []
-                    const bluePlayers = game.game_players?.filter(p => p.side === 'blue') ?? []
-                    const winner = game.game_players?.find(p => p.won)?.side
-                    return (
-                      <div key={game.id} className={`game-card ${deletingGame === game.id ? 'game-card-deleting' : ''}`}>
-                        <div className="game-card-date">
-                          {new Date(game.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {winner && <span className={`winner-tag ${winner}`}>{winner.toUpperCase()} wins</span>}
-                          {profile?.is_admin && (
-                            <button
-                              className="delete-game-btn"
-                              onClick={() => deleteGame(game.id)}
-                              disabled={deletingGame === game.id}
-                              title="Delete game"
-                            >{deletingGame === game.id ? '…' : '✕'}</button>
-                          )}
-                        </div>
-                        <div className="game-sides">
-                          <div className="game-side red-side">
-                            {redPlayers.map(p => (
-                              <span key={p.id} className="player-chip">
-                                {p.profiles?.display_name}
-                                {p.role === 'spymaster' && <span className="sm-badge" title="Spymaster">🕵️</span>}
-                              </span>
-                            ))}
+                            <div className="game-sides">
+                              <div className="game-side red-side">
+                                {redPlayers.map(p => (
+                                  <span key={p.id} className="player-chip">
+                                    {p.profiles?.display_name}
+                                    {p.role === 'spymaster' && <span className="sm-badge" title="Spymaster">🕵️</span>}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="vs-divider">vs</div>
+                              <div className="game-side blue-side">
+                                {bluePlayers.map(p => (
+                                  <span key={p.id} className="player-chip">
+                                    {p.profiles?.display_name}
+                                    {p.role === 'spymaster' && <span className="sm-badge" title="Spymaster">🕵️</span>}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {game.notes && <p className="game-notes">"{game.notes}"</p>}
                           </div>
-                          <div className="vs-divider">vs</div>
-                          <div className="game-side blue-side">
-                            {bluePlayers.map(p => (
-                              <span key={p.id} className="player-chip">
-                                {p.profiles?.display_name}
-                                {p.role === 'spymaster' && <span className="sm-badge" title="Spymaster">🕵️</span>}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        {game.notes && <p className="game-notes">"{game.notes}"</p>}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
 
-            {inviteCode && (
-              <section className="invite-section">
-                <p className="invite-label">Team invite code</p>
-                <div className="invite-code-display" onClick={() => navigator.clipboard.writeText(inviteCode)} title="Click to copy">
-                  {inviteCode} <span className="copy-hint">click to copy</span>
-                </div>
-              </section>
-            )}
-          </>
+                {/* Invite code */}
+                {inviteCode && (
+                  <section className="invite-section">
+                    <p className="invite-label">Team invite code</p>
+                    <div className="invite-code-display"
+                      onClick={() => navigator.clipboard.writeText(inviteCode)}
+                      title="Click to copy">
+                      {inviteCode} <span className="copy-hint">click to copy</span>
+                    </div>
+                  </section>
+                )}
+              </div>
+            )
+          })
         )}
       </main>
     </div>

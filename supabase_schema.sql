@@ -10,12 +10,13 @@
 -- ============================================================
 -- drop trigger if exists on_auth_user_created on auth.users;
 -- drop function if exists public.handle_new_user();
--- drop function if exists public.my_team_id();
--- drop function if exists public.i_am_admin();
+-- drop function if exists public.my_team_ids();
+-- drop function if exists public.i_am_admin_of(uuid);
 -- drop table if exists public.function_rate_limits;
 -- drop table if exists public.game_players;
 -- drop table if exists public.stat_seeds;
 -- drop table if exists public.games;
+-- drop table if exists public.team_members;
 -- drop table if exists public.profiles;
 -- drop table if exists public.teams;
 
@@ -34,12 +35,20 @@ create table public.teams (
 -- randomly generated UUIDs that have no corresponding auth row.
 create table public.profiles (
   id           uuid primary key,
-  team_id      uuid references public.teams(id) on delete set null,
   display_name text,
-  is_admin     boolean default false,
-  is_active    boolean not null default true,
   is_angel     boolean not null default false,
   created_at   timestamptz default now()
+);
+
+-- A user can belong to multiple teams; role (is_admin, is_active) is per-team.
+create table public.team_members (
+  id         uuid primary key default gen_random_uuid(),
+  team_id    uuid not null references public.teams(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  is_admin   boolean not null default false,
+  is_active  boolean not null default true,
+  joined_at  timestamptz default now(),
+  unique (team_id, profile_id)
 );
 
 create table public.games (
@@ -79,7 +88,6 @@ create table public.stat_seeds (
 );
 
 -- Tracks the last time each admin triggered the email-stats edge function.
--- Used by the function (via service role) to enforce a 60-minute rate limit.
 create table public.function_rate_limits (
   profile_id    uuid primary key references public.profiles(id) on delete cascade,
   last_called_at timestamptz not null default now()
@@ -87,26 +95,22 @@ create table public.function_rate_limits (
 
 -- ============================================================
 -- SECURITY DEFINER HELPERS
--- These bypass RLS when called, preventing infinite recursion
--- in policies that need to look up the current user's profile.
 -- ============================================================
 
-create or replace function public.my_team_id()
-returns uuid
-language sql
-stable
-security definer
-as $$
-  select team_id from public.profiles where id = auth.uid() limit 1;
+create or replace function public.my_team_ids()
+returns setof uuid
+language sql stable security definer as $$
+  select team_id from public.team_members where profile_id = auth.uid();
 $$;
 
-create or replace function public.i_am_admin()
+create or replace function public.i_am_admin_of(check_team_id uuid)
 returns boolean
-language sql
-stable
-security definer
-as $$
-  select coalesce(is_admin, false) from public.profiles where id = auth.uid() limit 1;
+language sql stable security definer as $$
+  select coalesce(
+    (select is_admin from public.team_members
+     where profile_id = auth.uid() and team_id = check_team_id limit 1),
+    false
+  );
 $$;
 
 -- ============================================================
@@ -115,110 +119,127 @@ $$;
 
 alter table public.teams              enable row level security;
 alter table public.profiles           enable row level security;
+alter table public.team_members       enable row level security;
 alter table public.games              enable row level security;
 alter table public.game_players       enable row level security;
 alter table public.stat_seeds         enable row level security;
 alter table public.function_rate_limits enable row level security;
 
--- ------------------------------------------------------------
 -- TEAMS
--- ------------------------------------------------------------
 
 create policy "Authenticated users can create a team"
   on public.teams for insert
   with check (auth.uid() is not null);
 
--- Allows anyone to look up a team by invite code during onboarding
 create policy "Anyone can look up a team by invite code"
   on public.teams for select
   using (true);
 
--- Separate select policy scoped to the user's own team
-create policy "Team members can view their team"
+create policy "Members can view their teams"
   on public.teams for select
-  using (id = public.my_team_id());
+  using (id in (select public.my_team_ids()));
 
 create policy "Admins can update their team"
   on public.teams for update
-  using (id = public.my_team_id() and public.i_am_admin());
+  using (public.i_am_admin_of(id));
 
--- ------------------------------------------------------------
 -- PROFILES
--- ------------------------------------------------------------
 
-create policy "Team members can view each other"
+create policy "Members can view teammates"
   on public.profiles for select
   using (
-    team_id = public.my_team_id()
-    or id = auth.uid()
+    id = auth.uid()
+    or id in (
+      select tm.profile_id from public.team_members tm
+      where tm.team_id in (select public.my_team_ids())
+    )
   );
 
--- Real users insert their own profile (via trigger or AuthProvider fallback).
--- Admins can insert ghost (angel) profiles for historical members.
 create policy "Users can insert their own profile"
   on public.profiles for insert
   with check (
     (id = auth.uid() and not is_angel)
-    or (is_angel = true and public.i_am_admin())
+    or (
+      is_angel = true
+      and exists (
+        select 1 from public.team_members
+        where profile_id = auth.uid() and is_admin = true
+      )
+    )
   );
 
-create policy "Users can update their own profile"
+create policy "Users can update their own profile or admins can update teammates"
   on public.profiles for update
   using (
     id = auth.uid()
-    or (team_id = public.my_team_id() and public.i_am_admin())
+    or exists (
+      select 1 from public.team_members tm1
+      join public.team_members tm2 on tm1.team_id = tm2.team_id
+      where tm1.profile_id = auth.uid() and tm1.is_admin = true
+        and tm2.profile_id = profiles.id
+    )
   );
 
--- Admins can delete ghost profiles (real profiles are removed by nulling team_id)
 create policy "Admins can delete ghost profiles"
   on public.profiles for delete
   using (
     is_angel = true
-    and team_id = public.my_team_id()
-    and public.i_am_admin()
+    and exists (
+      select 1 from public.team_members tm1
+      join public.team_members tm2 on tm1.team_id = tm2.team_id
+      where tm1.profile_id = auth.uid() and tm1.is_admin = true
+        and tm2.profile_id = profiles.id
+    )
   );
 
--- ------------------------------------------------------------
+-- TEAM_MEMBERS
+
+create policy "Members can view their team rosters"
+  on public.team_members for select
+  using (team_id in (select public.my_team_ids()));
+
+create policy "Users can join a team themselves or admins can add members"
+  on public.team_members for insert
+  with check (
+    profile_id = auth.uid()
+    or public.i_am_admin_of(team_id)
+  );
+
+create policy "Admins can update team memberships"
+  on public.team_members for update
+  using (public.i_am_admin_of(team_id));
+
+create policy "Members can leave or admins can remove"
+  on public.team_members for delete
+  using (
+    profile_id = auth.uid()
+    or public.i_am_admin_of(team_id)
+  );
+
 -- GAMES
--- ------------------------------------------------------------
 
 create policy "Team members can view games"
   on public.games for select
-  using (
-    team_id in (
-      select team_id from public.profiles where id = auth.uid()
-    )
-  );
+  using (team_id in (select public.my_team_ids()));
 
 create policy "Team members can insert games"
   on public.games for insert
-  with check (
-    team_id in (
-      select team_id from public.profiles where id = auth.uid()
-    )
-  );
+  with check (team_id in (select public.my_team_ids()));
 
 create policy "Game creator or admin can delete games"
   on public.games for delete
   using (
     created_by = auth.uid()
-    or team_id in (
-      select team_id from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    or public.i_am_admin_of(team_id)
   );
 
--- ------------------------------------------------------------
--- GAME PLAYERS
--- ------------------------------------------------------------
+-- GAME_PLAYERS
 
 create policy "Team members can view game players"
   on public.game_players for select
   using (
     game_id in (
-      select g.id from public.games g
-      join public.profiles p on p.team_id = g.team_id
-      where p.id = auth.uid()
+      select id from public.games where team_id in (select public.my_team_ids())
     )
   );
 
@@ -226,38 +247,30 @@ create policy "Team members can insert game players"
   on public.game_players for insert
   with check (
     game_id in (
-      select g.id from public.games g
-      join public.profiles p on p.team_id = g.team_id
-      where p.id = auth.uid()
+      select id from public.games where team_id in (select public.my_team_ids())
     )
   );
 
--- ------------------------------------------------------------
--- STAT SEEDS
--- ------------------------------------------------------------
+-- STAT_SEEDS
 
 create policy "Team members can view seeds"
   on public.stat_seeds for select
-  using (team_id = public.my_team_id());
+  using (team_id in (select public.my_team_ids()));
 
 create policy "Admins can insert seeds"
   on public.stat_seeds for insert
-  with check (team_id = public.my_team_id() and public.i_am_admin());
+  with check (team_id in (select public.my_team_ids()) and public.i_am_admin_of(team_id));
 
 create policy "Admins can update seeds"
   on public.stat_seeds for update
-  using (team_id = public.my_team_id() and public.i_am_admin());
+  using (team_id in (select public.my_team_ids()) and public.i_am_admin_of(team_id));
 
 create policy "Admins can delete seeds"
   on public.stat_seeds for delete
-  using (team_id = public.my_team_id() and public.i_am_admin());
+  using (team_id in (select public.my_team_ids()) and public.i_am_admin_of(team_id));
 
--- ------------------------------------------------------------
 -- FUNCTION RATE LIMITS
--- ------------------------------------------------------------
 
--- The edge function writes to this table via the service role (bypasses RLS).
--- This policy covers any direct user-facing access.
 create policy "Users can manage their own rate limit row"
   on public.function_rate_limits
   using (profile_id = auth.uid())

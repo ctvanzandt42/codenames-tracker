@@ -6,35 +6,33 @@ const AuthContext = createContext({})
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [memberships, setMemberships] = useState(null) // null = not loaded yet
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
       else setLoading(false)
     })
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
-      else { setProfile(null); setLoading(false) }
+      else { setProfile(null); setMemberships(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
   async function fetchProfile(userId) {
-    const { data, error } = await supabase
+    let { data: profileData } = await supabase
       .from('profiles')
-      .select('*, teams(*)')
+      .select('id, display_name, is_angel')
       .eq('id', userId)
       .maybeSingle()
 
-    // If no profile row exists (e.g. manually deleted), create one and retry
-    if (!data && !error) {
+    if (!profileData) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('profiles').insert({
         id: userId,
@@ -45,13 +43,19 @@ export function AuthProvider({ children }) {
       })
       const { data: retried } = await supabase
         .from('profiles')
-        .select('*, teams(*)')
+        .select('id, display_name, is_angel')
         .eq('id', userId)
         .maybeSingle()
-      setProfile(retried)
-    } else {
-      setProfile(data)
+      profileData = retried
     }
+
+    const { data: membershipData } = await supabase
+      .from('team_members')
+      .select('*, teams(*)')
+      .eq('profile_id', userId)
+
+    setProfile(profileData)
+    setMemberships(membershipData || [])
     setLoading(false)
   }
 
@@ -70,8 +74,16 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  // Convenience helpers consumed by pages
+  function isAdminOf(teamId) {
+    return memberships?.some(m => m.team_id === teamId && m.is_admin) ?? false
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{
+      user, profile, memberships, loading,
+      isAdminOf, signInWithGoogle, signOut, refreshProfile
+    }}>
       {children}
     </AuthContext.Provider>
   )

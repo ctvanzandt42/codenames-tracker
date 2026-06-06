@@ -9,7 +9,7 @@ import GameHistory from './pages/GameHistory'
 import './App.css'
 
 function AppRoutes() {
-  const { user, profile, loading } = useAuth()
+  const { user, memberships, loading } = useAuth()
 
   if (loading) {
     return (
@@ -20,7 +20,7 @@ function AppRoutes() {
   }
 
   if (!user) return <Login />
-  if (!profile?.team_id) return <Onboarding />
+  if (!memberships || memberships.length === 0) return <Onboarding />
 
   return (
     <Routes>

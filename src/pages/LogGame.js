@@ -7,10 +7,11 @@ import AppHeader from '../components/AppHeader'
 const EMPTY_PLAYER = { profile_id: '', role: 'operative', side: 'red' }
 
 export default function LogGame() {
-  const { profile } = useAuth()
+  const { profile, memberships } = useAuth()
   const navigate = useNavigate()
+  const [selectedTeamId, setSelectedTeamId] = useState('')
   const [members, setMembers] = useState([])
-  const [winner, setWinner] = useState('red') // 'red' | 'blue'
+  const [winner, setWinner] = useState('red')
   const [players, setPlayers] = useState([
     { ...EMPTY_PLAYER, side: 'red' },
     { ...EMPTY_PLAYER, side: 'red' },
@@ -21,15 +22,28 @@ export default function LogGame() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Default to first membership
   useEffect(() => {
-    if (profile?.team_id) loadMembers()
-  }, [profile])
+    if (memberships?.length && !selectedTeamId) {
+      setSelectedTeamId(memberships[0].team_id)
+    }
+  }, [memberships])
 
-  async function loadMembers() {
+  useEffect(() => {
+    if (selectedTeamId) loadMembers(selectedTeamId)
+  }, [selectedTeamId])
+
+  async function loadMembers(teamId) {
+    const { data: memberRows } = await supabase
+      .from('team_members')
+      .select('profile_id')
+      .eq('team_id', teamId)
+    const ids = (memberRows || []).map(r => r.profile_id)
+    if (!ids.length) { setMembers([]); return }
     const { data } = await supabase
       .from('profiles')
       .select('id, display_name')
-      .eq('team_id', profile.team_id)
+      .in('id', ids)
     setMembers(data || [])
   }
 
@@ -49,7 +63,6 @@ export default function LogGame() {
     e.preventDefault()
     setError(''); setLoading(true)
 
-    // Validate: need at least 1 player per side, each side needs exactly 1 spymaster
     const redPlayers = players.filter(p => p.side === 'red' && p.profile_id)
     const bluePlayers = players.filter(p => p.side === 'blue' && p.profile_id)
     const redSM = redPlayers.filter(p => p.role === 'spymaster')
@@ -66,14 +79,12 @@ export default function LogGame() {
     }
 
     try {
-      // Insert game
       const { data: game, error: gameErr } = await supabase
         .from('games')
-        .insert({ team_id: profile.team_id, notes: notes || null, created_by: profile.id })
+        .insert({ team_id: selectedTeamId, notes: notes || null, created_by: profile.id })
         .select().single()
       if (gameErr) throw gameErr
 
-      // Insert game_players
       const validPlayers = players.filter(p => p.profile_id)
       const gpRows = validPlayers.map(p => ({
         game_id: game.id,
@@ -95,6 +106,7 @@ export default function LogGame() {
 
   const redPlayers = players.map((p, i) => ({ ...p, index: i })).filter(p => p.side === 'red')
   const bluePlayers = players.map((p, i) => ({ ...p, index: i })).filter(p => p.side === 'blue')
+  const multiTeam = memberships?.length > 1
 
   return (
     <div className="app-shell">
@@ -105,20 +117,39 @@ export default function LogGame() {
       <main className="main-content log-game-main">
         <form onSubmit={handleSubmit} className="log-form">
 
+          {/* Team picker — only shown when user belongs to multiple teams */}
+          {multiTeam && (
+            <section className="log-section">
+              <h3 className="log-section-title">Team</h3>
+              <select
+                className="player-select"
+                style={{ width: '100%' }}
+                value={selectedTeamId}
+                onChange={e => {
+                  setSelectedTeamId(e.target.value)
+                  setPlayers([
+                    { ...EMPTY_PLAYER, side: 'red' },
+                    { ...EMPTY_PLAYER, side: 'red' },
+                    { ...EMPTY_PLAYER, side: 'blue' },
+                    { ...EMPTY_PLAYER, side: 'blue' },
+                  ])
+                }}
+              >
+                {memberships.map(m => (
+                  <option key={m.team_id} value={m.team_id}>{m.teams?.name}</option>
+                ))}
+              </select>
+            </section>
+          )}
+
           {/* Winner */}
           <section className="log-section">
             <h3 className="log-section-title">Who won?</h3>
             <div className="winner-toggle">
-              <button
-                type="button"
-                className={`winner-btn red-btn ${winner === 'red' ? 'active' : ''}`}
-                onClick={() => setWinner('red')}
-              >🔴 Red</button>
-              <button
-                type="button"
-                className={`winner-btn blue-btn ${winner === 'blue' ? 'active' : ''}`}
-                onClick={() => setWinner('blue')}
-              >🔵 Blue</button>
+              <button type="button" className={`winner-btn red-btn ${winner === 'red' ? 'active' : ''}`}
+                onClick={() => setWinner('red')}>🔴 Red</button>
+              <button type="button" className={`winner-btn blue-btn ${winner === 'blue' ? 'active' : ''}`}
+                onClick={() => setWinner('blue')}>🔵 Blue</button>
             </div>
           </section>
 
@@ -130,21 +161,15 @@ export default function LogGame() {
                 <h3 className="log-section-title">{label}</h3>
                 {list.map(({ index, profile_id, role }) => (
                   <div key={index} className="player-row">
-                    <select
-                      className="player-select"
-                      value={profile_id}
-                      onChange={e => updatePlayer(index, 'profile_id', e.target.value)}
-                    >
+                    <select className="player-select" value={profile_id}
+                      onChange={e => updatePlayer(index, 'profile_id', e.target.value)}>
                       <option value="">— Select player —</option>
                       {members.map(m => (
                         <option key={m.id} value={m.id}>{m.display_name || m.id}</option>
                       ))}
                     </select>
-                    <select
-                      className="role-select"
-                      value={role}
-                      onChange={e => updatePlayer(index, 'role', e.target.value)}
-                    >
+                    <select className="role-select" value={role}
+                      onChange={e => updatePlayer(index, 'role', e.target.value)}>
                       <option value="operative">Operative</option>
                       <option value="spymaster">🕵️ Spymaster</option>
                     </select>
@@ -161,12 +186,8 @@ export default function LogGame() {
           {/* Notes */}
           <section className="log-section">
             <h3 className="log-section-title">Notes <span className="optional">(optional)</span></h3>
-            <input
-              className="email-input"
-              placeholder="e.g. 9-clue massacre, comeback win…"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-            />
+            <input className="email-input" placeholder="e.g. 9-clue massacre, comeback win…"
+              value={notes} onChange={e => setNotes(e.target.value)} />
           </section>
 
           {error && <p className="error-msg">{error}</p>}

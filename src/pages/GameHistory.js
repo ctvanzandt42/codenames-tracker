@@ -7,39 +7,47 @@ import AppHeader from '../components/AppHeader'
 const PAGE_SIZE = 20
 
 export default function GameHistory() {
-  const { profile } = useAuth()
+  const { memberships, isAdminOf } = useAuth()
   const navigate = useNavigate()
+  const [selectedTeamId, setSelectedTeamId] = useState('')
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [deletingGame, setDeletingGame] = useState(null)
 
-  const loadGames = useCallback(async (offset = 0) => {
+  useEffect(() => {
+    if (memberships?.length && !selectedTeamId) {
+      setSelectedTeamId(memberships[0].team_id)
+    }
+  }, [memberships])
+
+  const loadGames = useCallback(async (teamId, offset = 0) => {
     const { data } = await supabase
       .from('games')
       .select('*, game_players(*, profiles(display_name))')
-      .eq('team_id', profile.team_id)
+      .eq('team_id', teamId)
       .order('played_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
-
     return data || []
-  }, [profile.team_id])
+  }, [])
 
   useEffect(() => {
+    if (!selectedTeamId) return
     async function init() {
       setLoading(true)
-      const data = await loadGames(0)
+      setGames([])
+      const data = await loadGames(selectedTeamId, 0)
       setGames(data)
       setHasMore(data.length === PAGE_SIZE)
       setLoading(false)
     }
-    if (profile?.team_id) init()
-  }, [profile, loadGames])
+    init()
+  }, [selectedTeamId, loadGames])
 
   async function loadMore() {
     setLoadingMore(true)
-    const data = await loadGames(games.length)
+    const data = await loadGames(selectedTeamId, games.length)
     setGames(prev => [...prev, ...data])
     setHasMore(data.length === PAGE_SIZE)
     setLoadingMore(false)
@@ -53,6 +61,9 @@ export default function GameHistory() {
     setDeletingGame(null)
   }
 
+  const multiTeam = memberships?.length > 1
+  const selectedTeamName = memberships?.find(m => m.team_id === selectedTeamId)?.teams?.name
+
   return (
     <div className="app-shell">
       <AppHeader title="Game History">
@@ -60,7 +71,28 @@ export default function GameHistory() {
       </AppHeader>
 
       <main className="main-content">
+
+        {/* Team switcher */}
+        {multiTeam && (
+          <div style={{ marginBottom: 20 }}>
+            <select
+              className="player-select"
+              style={{ width: '100%' }}
+              value={selectedTeamId}
+              onChange={e => setSelectedTeamId(e.target.value)}
+            >
+              {memberships.map(m => (
+                <option key={m.team_id} value={m.team_id}>{m.teams?.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <section className="recent-section">
+          {multiTeam && selectedTeamName && (
+            <h2 className="section-title">{selectedTeamName}</h2>
+          )}
+
           {loading ? (
             <div className="loading-state">Loading games…</div>
           ) : games.length === 0 ? (
@@ -80,7 +112,7 @@ export default function GameHistory() {
                       <div className="game-card-date">
                         {new Date(game.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         {winner && <span className={`winner-tag ${winner}`}>{winner.toUpperCase()} wins</span>}
-                        {profile?.is_admin && (
+                        {isAdminOf(selectedTeamId) && (
                           <button
                             className="delete-game-btn"
                             onClick={() => deleteGame(game.id)}
@@ -116,12 +148,8 @@ export default function GameHistory() {
 
               {hasMore && (
                 <div style={{ textAlign: 'center', marginTop: 24 }}>
-                  <button
-                    className="action-btn"
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    style={{ padding: '10px 28px' }}
-                  >
+                  <button className="action-btn" onClick={loadMore} disabled={loadingMore}
+                    style={{ padding: '10px 28px' }}>
                     {loadingMore ? 'Loading…' : 'Load more'}
                   </button>
                 </div>

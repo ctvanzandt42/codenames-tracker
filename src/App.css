@@ -394,6 +394,26 @@ body {
 .streak-l { background: var(--red-dim); border-color: rgba(232,84,84,0.3); color: var(--red); }
 
 /* ============================================================
+   MULTI-TEAM DASHBOARD
+============================================================ */
+.team-section-block {
+  margin-bottom: 48px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--border);
+}
+.team-section-block:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.team-section-heading {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+/* ============================================================
    RECENT GAMES
 ============================================================ */
 .game-cards { display: flex; flex-direction: column; gap: 12px; }

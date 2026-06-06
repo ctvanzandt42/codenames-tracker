@@ -11,7 +11,6 @@ export default function Onboarding() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Auto-detect invite code from URL e.g. /?invite=ABC123
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('invite')
@@ -25,17 +24,18 @@ export default function Onboarding() {
     e.preventDefault()
     setError(''); setLoading(true)
     try {
-      // Create team
       const { data: team, error: teamErr } = await supabase
         .from('teams').insert({ name: teamName }).select().single()
       if (teamErr) throw teamErr
 
-      // Update profile
-      const { error: profErr } = await supabase
-        .from('profiles')
-        .update({ team_id: team.id, display_name: displayName || null, is_admin: true })
-        .eq('id', user.id)
-      if (profErr) throw profErr
+      if (displayName.trim()) {
+        await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id)
+      }
+
+      const { error: memberErr } = await supabase
+        .from('team_members')
+        .insert({ team_id: team.id, profile_id: user.id, is_admin: true })
+      if (memberErr) throw memberErr
 
       await refreshProfile()
     } catch (err) {
@@ -52,11 +52,14 @@ export default function Onboarding() {
         .from('teams').select('id').eq('invite_code', inviteCode.trim().toUpperCase()).single()
       if (teamErr || !team) throw new Error('Invalid invite code. Check with your team admin.')
 
-      const { error: profErr } = await supabase
-        .from('profiles')
-        .update({ team_id: team.id, display_name: displayName || null })
-        .eq('id', user.id)
-      if (profErr) throw profErr
+      if (displayName.trim()) {
+        await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id)
+      }
+
+      const { error: memberErr } = await supabase
+        .from('team_members')
+        .insert({ team_id: team.id, profile_id: user.id })
+      if (memberErr) throw memberErr
 
       await refreshProfile()
     } catch (err) {
