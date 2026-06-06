@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthProvider'
+import AppHeader from '../components/AppHeader'
 
 export default function Admin() {
   const { profile } = useAuth()
@@ -194,15 +195,9 @@ export default function Admin() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="header-left">
-          <span className="logo-icon-sm">🕵️</span>
-          <span className="header-team">Team Admin</span>
-        </div>
-        <nav className="header-nav">
-          <button className="nav-link sign-out-btn" onClick={() => navigate('/')}>← Back</button>
-        </nav>
-      </header>
+      <AppHeader title="Team Admin">
+        <button className="nav-link sign-out-btn" onClick={() => navigate('/')}>← Back</button>
+      </AppHeader>
 
       <main className="main-content">
 

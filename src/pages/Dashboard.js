@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthProvider'
 import { computeStats } from '../lib/stats'
 import { Link } from 'react-router-dom'
+import AppHeader from '../components/AppHeader'
 
 export default function Dashboard() {
   const { profile, signOut } = useAuth()
@@ -68,19 +69,13 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="header-left">
-          <span className="logo-icon-sm">🕵️</span>
-          <span className="header-team">{teamName}</span>
-        </div>
-        <nav className="header-nav">
-          {profile?.is_admin && (
-            <Link to="/admin" className="nav-link">Admin</Link>
-          )}
-          <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
-          <button onClick={signOut} className="nav-link sign-out-btn">Sign out</button>
-        </nav>
-      </header>
+      <AppHeader title={teamName}>
+        {profile?.is_admin && (
+          <Link to="/admin" className="nav-link">Admin</Link>
+        )}
+        <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
+        <button onClick={signOut} className="nav-link sign-out-btn">Sign out</button>
+      </AppHeader>
 
       <main className="main-content">
         {loading ? (

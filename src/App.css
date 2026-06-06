@@ -22,6 +22,30 @@
   --mono: 'DM Mono', monospace;
 }
 
+/* ============================================================
+   LIGHT MODE TOKENS
+============================================================ */
+[data-theme="light"] {
+  --bg: #f4f4f8;
+  --surface: #ffffff;
+  --surface2: #ebebf0;
+  --border: #d8d8e4;
+  --text: #18181c;
+  --muted: #68687c;
+  --accent: #9a7200;
+  --accent-dim: rgba(154, 114, 0, 0.1);
+  --red: #c83232;
+  --red-dim: rgba(200, 50, 50, 0.1);
+  --blue: #2458b8;
+  --blue-dim: rgba(36, 88, 184, 0.1);
+  --green: #1e8c5c;
+}
+
+[data-theme="light"] .btn-google:hover {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -265,6 +289,8 @@ body {
 .btn-log:hover { opacity: 0.88; background: var(--accent) !important; }
 
 .sign-out-btn { color: var(--muted); }
+.theme-toggle { font-size: 1rem; padding: 6px 8px !important; }
+.login-theme-toggle { position: fixed; top: 16px; right: 16px; }
 
 .main-content {
   flex: 1;

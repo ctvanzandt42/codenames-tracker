@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthProvider'
+import AppHeader from '../components/AppHeader'
 
 const EMPTY_PLAYER = { profile_id: '', role: 'operative', side: 'red' }
 
@@ -97,15 +98,9 @@ export default function LogGame() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="header-left">
-          <span className="logo-icon-sm">🕵️</span>
-          <span className="header-team">Log a Game</span>
-        </div>
-        <nav className="header-nav">
-          <button className="nav-link sign-out-btn" onClick={() => navigate('/')}>← Back</button>
-        </nav>
-      </header>
+      <AppHeader title="Log a Game">
+        <button className="nav-link sign-out-btn" onClick={() => navigate('/')}>← Back</button>
+      </AppHeader>
 
       <main className="main-content log-game-main">
         <form onSubmit={handleSubmit} className="log-form">

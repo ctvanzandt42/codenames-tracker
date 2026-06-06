@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../components/AuthProvider'
+import { useTheme } from '../lib/theme'
 
 export default function Login() {
   const { signInWithGoogle } = useAuth()
+  const { theme, toggle } = useTheme()
   const [error, setError] = useState('')
 
   async function handleGoogle() {
@@ -19,6 +21,13 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <button
+        onClick={toggle}
+        className="nav-link theme-toggle login-theme-toggle"
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {theme === 'dark' ? '☀' : '🌙'}
+      </button>
       <div className="login-card">
         <div className="login-logo">
           <span className="logo-icon">🕵️</span>
