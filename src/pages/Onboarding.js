@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthProvider'
 
 export default function Onboarding() {
-  const { user, refreshProfile } = useAuth()
+  const { user, memberships, refreshProfile } = useAuth()
+  const navigate = useNavigate()
+  const isAddingTeam = memberships?.length > 0 // already on at least one team
   const [mode, setMode] = useState(null) // 'create' | 'join'
   const [teamName, setTeamName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
@@ -38,6 +41,7 @@ export default function Onboarding() {
       if (memberErr) throw memberErr
 
       await refreshProfile()
+      if (isAddingTeam) navigate('/')
     } catch (err) {
       setError(err.message)
     }
@@ -62,6 +66,7 @@ export default function Onboarding() {
       if (memberErr) throw memberErr
 
       await refreshProfile()
+      if (isAddingTeam) navigate('/')
     } catch (err) {
       setError(err.message)
     }
@@ -71,10 +76,15 @@ export default function Onboarding() {
   return (
     <div className="login-page">
       <div className="login-card onboarding-card">
+        {isAddingTeam && (
+          <button className="back-btn" onClick={() => navigate('/')} style={{ marginBottom: 16 }}>
+            ← Back
+          </button>
+        )}
         <div className="login-logo">
           <span className="logo-icon">🕵️</span>
-          <h1>Welcome!</h1>
-          <p className="logo-sub">Set up your team</p>
+          <h1>{isAddingTeam ? 'Add a Team' : 'Welcome!'}</h1>
+          <p className="logo-sub">{isAddingTeam ? 'Create or join another team' : 'Set up your team'}</p>
         </div>
 
         {!mode && (
@@ -98,13 +108,15 @@ export default function Onboarding() {
               ← Back
             </button>
 
-            <label className="field-label">Your display name (optional)</label>
-            <input
-              className="email-input"
-              placeholder="e.g. Alex"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-            />
+            {!isAddingTeam && (<>
+              <label className="field-label">Your display name (optional)</label>
+              <input
+                className="email-input"
+                placeholder="e.g. Alex"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+              />
+            </>)}
 
             {mode === 'create' ? (
               <>

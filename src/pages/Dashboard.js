@@ -83,8 +83,8 @@ export default function Dashboard() {
       <main className="main-content">
         {loading ? (
           <div className="loading-state">Loading stats…</div>
-        ) : (
-          memberships.map(membership => {
+        ) : (<>
+          {memberships.map(membership => {
             const team = membership.teams
             const data = teamData[membership.team_id] || { stats: [], recentGames: [] }
             const inviteCode = team?.invite_code
@@ -210,8 +210,13 @@ export default function Dashboard() {
                 )}
               </div>
             )
-          })
-        )}
+          })}
+          <div style={{ textAlign: 'center', paddingTop: 8 }}>
+            <Link to="/teams/new" className="nav-link" style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              + Join or create another team
+            </Link>
+          </div>
+        </>)}
       </main>
     </div>
   )

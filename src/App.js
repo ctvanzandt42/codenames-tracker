@@ -28,6 +28,7 @@ function AppRoutes() {
       <Route path="/log" element={<LogGame />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/history" element={<GameHistory />} />
+      <Route path="/teams/new" element={<Onboarding />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
