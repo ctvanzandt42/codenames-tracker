@@ -135,7 +135,10 @@ export default function Dashboard() {
             </section>
 
             <section className="recent-section">
-              <h2 className="section-title">Recent Games</h2>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Recent Games</h2>
+                {recentGames.length > 0 && <Link to="/history" className="nav-link" style={{ fontSize: '0.85rem' }}>View all →</Link>}
+              </div>
               {recentGames.length === 0 ? (
                 <p className="muted">No games yet.</p>
               ) : (
