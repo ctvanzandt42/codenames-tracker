@@ -7,10 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  # ── Test & build ─────────────────────────────────────────────────────────
-  # Runs on every push and every PR. Acts as the gate for everything below.
-  test:
-    name: Test & Build
+  # ── Unit tests & production build ─────────────────────────────────────────
+  # Fast — no Supabase needed. Runs on every push and PR.
+  test-js:
+    name: Unit Tests & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -33,12 +33,39 @@ jobs:
           REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
           REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
 
+  # ── Database (RLS) tests ──────────────────────────────────────────────────
+  # Spins up the full local Supabase stack and runs pgTAP tests.
+  # Runs in parallel with test-js on every push and PR.
+  test-db:
+    name: Database (RLS) Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+        env:
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-placeholder
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-placeholder
+
+      - name: Run RLS tests
+        run: supabase test db
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
+
   # ── Deploy edge functions ─────────────────────────────────────────────────
-  # Runs only when test passes on a push to main (not on PRs).
+  # Runs only on push to main after both test jobs pass.
   # Vercel handles the React app deploy automatically via its GitHub integration.
   deploy-functions:
     name: Deploy Edge Functions
-    needs: test
+    needs: [test-js, test-db]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
