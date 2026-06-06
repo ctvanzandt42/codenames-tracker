@@ -1,5 +1,6 @@
 node_modules
 build
+.git
 .env
 .env.local
-supabase/functions/.env
+.DS_Store

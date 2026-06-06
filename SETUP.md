@@ -1,128 +1,180 @@
 # Codenames Tracker — Setup Guide
 
-Estimated time: **15–20 minutes**. No paid services required.
+Two paths: **local dev** (Docker, everything on your machine) or **cloud deploy** (Supabase + Vercel).
 
 ---
 
-## Step 1 — Create a Supabase project
+## Local Development (Docker)
 
-1. Go to [supabase.com](https://supabase.com) and sign up (free)
-2. Click **New project**, give it a name (e.g. `codenames-tracker`), pick a region close to you, set a DB password
-3. Wait ~2 minutes for it to provision
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
+- [Supabase CLI](https://supabase.com/docs/guides/cli) installed (`brew install supabase`)
+- Logged in: `supabase login`
+
+### Step 1 — Google OAuth credentials
+
+The app uses Google sign-in. You need credentials even for local dev.
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
+2. Application type: **Web application**
+3. Add these **Authorized redirect URIs**:
+   ```
+   http://localhost:54321/auth/v1/callback
+   ```
+4. Copy the **Client ID** and **Client Secret**
+
+### Step 2 — Create your env files
+
+```bash
+# Supabase CLI reads this on `supabase start` to configure Google OAuth
+cp .env.example .env
+# fill in SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID and SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+
+# React app reads this at dev-server start
+cp .env.local.example .env.local
+# leave it as-is for now — you'll fill in the anon key in Step 4
+
+# Edge function secrets (only needed to test email sending locally)
+cp supabase/functions/.env.example supabase/functions/.env
+# optionally fill in RESEND_API_KEY
+```
+
+### Step 3 — Start the local Supabase stack
+
+```bash
+supabase start
+```
+
+This pulls and starts all Supabase services in Docker (Postgres, Auth, PostgREST, Studio, etc.) and applies the migration in `supabase/migrations/`. Takes ~2 minutes the first time.
+
+When it finishes, run this to get the JWT keys (the default output no longer shows them):
+
+```bash
+supabase status --output env
+```
+
+### Step 4 — Fill in the anon key
+
+Copy the `ANON_KEY` value and paste it into `.env.local`:
+
+```
+REACT_APP_SUPABASE_URL=http://localhost:54321
+REACT_APP_SUPABASE_ANON_KEY=eyJ...
+```
+
+### Step 5 — Start the React app
+
+```bash
+docker compose up
+```
+
+This builds the app container and starts the dev server with hot reload.
+Open [http://localhost:3000](http://localhost:3000).
+
+### Useful commands
+
+| Command | What it does |
+|---|---|
+| `supabase start` | Start the local Supabase stack |
+| `supabase stop` | Stop the local Supabase stack |
+| `supabase db reset` | Wipe the local DB and re-run migrations + seed |
+| `supabase status` | Print local URLs and keys |
+| `supabase studio` | Open Supabase Studio in browser |
+| `docker compose up` | Start the React dev server |
+| `docker compose down` | Stop the React dev server |
+| `supabase functions serve` | Run edge functions locally (hot reload) |
+
+### Local edge function testing
+
+To test the `email-stats` function locally:
+
+```bash
+supabase functions serve
+```
+
+The function is then available at `http://localhost:54321/functions/v1/email-stats`. Without a `RESEND_API_KEY` in `supabase/functions/.env`, it will fail at the email-send step but you can verify auth and rate-limit logic.
+
+### Resetting to a clean slate
+
+```bash
+supabase db reset   # drops everything, re-runs migrations, runs seed.sql
+```
 
 ---
 
-## Step 2 — Run the database schema
+## Cloud Deployment (Supabase + Vercel)
 
-1. In your Supabase dashboard, go to **SQL Editor** (left sidebar)
-2. Click **New query**
-3. Open `supabase_schema.sql` from this project and paste the entire contents
-4. Click **Run** — you should see "Success" with no errors
+### Step 1 — Create a Supabase project
 
----
+1. Go to [supabase.com](https://supabase.com) → **New project**
+2. Give it a name, pick a region, set a DB password
 
-## Step 3 — Enable Google OAuth (+ magic link is already on by default)
+### Step 2 — Run the database schema
 
-Magic link email login is enabled in Supabase by default — nothing to do.
+1. In your Supabase dashboard → **SQL Editor → New query**
+2. Paste the contents of `supabase_schema.sql`
+3. Click **Run**
 
-For Google OAuth:
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project (or use an existing one)
-3. Go to **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
-4. Application type: **Web application**
-5. Under **Authorized redirect URIs**, add:
+### Step 3 — Enable Google OAuth
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
+2. Application type: **Web application**
+3. Add this **Authorized redirect URI**:
    ```
    https://<your-project-id>.supabase.co/auth/v1/callback
    ```
-6. Copy the **Client ID** and **Client Secret**
-7. Back in Supabase: go to **Authentication → Providers → Google**
-8. Toggle it **on**, paste in your Client ID and Client Secret, save
+4. Copy the **Client ID** and **Client Secret**
+5. In Supabase → **Authentication → Providers → Google** → toggle on, paste credentials
 
----
+### Step 4 — Deploy the edge function
 
-## Step 4 — Get your Supabase API keys
+```bash
+supabase link --project-ref <your-project-ref>
+supabase secrets set RESEND_API_KEY=re_...
+supabase functions deploy email-stats
+```
 
-1. In Supabase, go to **Settings → API**
-2. Copy:
-   - **Project URL** (looks like `https://abcdefgh.supabase.co`)
-   - **anon / public key** (the long `eyJ...` string)
+### Step 5 — Get your API keys
 
----
+In Supabase → **Settings → API**, copy:
+- **Project URL** (e.g. `https://abcdefgh.supabase.co`)
+- **anon / public key**
 
-## Step 5 — Deploy to Vercel
+### Step 6 — Deploy to Vercel
 
-1. Push this project to a GitHub repo (create one at github.com)
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USERNAME/codenames-tracker.git
-   git push -u origin main
-   ```
+1. Push to GitHub
+2. Import at [vercel.com](https://vercel.com) → **Add New → Project**
+3. Add environment variables:
 
-2. Go to [vercel.com](https://vercel.com), sign up/log in with GitHub
-3. Click **Add New → Project** and import your repo
-4. Vercel will auto-detect it as a Create React App project
-5. Before deploying, add **Environment Variables**:
    | Name | Value |
    |---|---|
    | `REACT_APP_SUPABASE_URL` | your Project URL |
    | `REACT_APP_SUPABASE_ANON_KEY` | your anon key |
-6. Click **Deploy** — takes ~1 minute
-7. Vercel gives you a `.vercel.app` URL
 
----
+4. Deploy
 
-## Step 6 — Update allowed redirect URLs
+### Step 7 — Update allowed redirect URLs
 
-Once you have your Vercel URL:
+Once you have your Vercel URL (e.g. `https://codenames-tracker.vercel.app`):
 
-1. In Supabase → **Authentication → URL Configuration**
-2. Set **Site URL** to your Vercel URL (e.g. `https://codenames-tracker.vercel.app`)
-3. Add it to **Redirect URLs** too
-4. If you set up Google OAuth: add the same URL to your Google OAuth app's **Authorized JavaScript Origins**
-
----
-
-## Step 7 — First run
-
-1. Open your `.vercel.app` URL
-2. Sign in via Google or magic link
-3. You'll be prompted to either **create a team** (you become admin) or **join** one with an invite code
-4. As admin, go to **Admin** in the nav to see your team's invite code and share it with teammates
-5. Start logging games!
-
----
-
-## How it works
-
-- **Magic link**: User enters email → gets a one-click login link (no password)
-- **Google**: One-click OAuth sign-in
-- **Teams**: Each team has a unique 8-character invite code; the admin shares it
-- **Admin**: Can add/remove admins, remove members; any member can log games
-- **Stats**: W-L, spymaster W-L, current streak, and win % — auto-calculated from game logs
-- **Streaks**: Based on most recent consecutive results (e.g. W3 = won last 3 games)
-
----
-
-## Local development
-
-```bash
-cp .env.example .env
-# fill in your Supabase values in .env
-
-npm install
-npm start
-```
+1. Supabase → **Authentication → URL Configuration**
+   - Set **Site URL** to your Vercel URL
+   - Add it to **Redirect URLs**
+2. Google Cloud Console → add the Vercel URL to **Authorized JavaScript Origins**
 
 ---
 
 ## Troubleshooting
 
-**"Missing Supabase environment variables"** → Make sure `.env` exists locally, or env vars are set in Vercel dashboard.
+**`supabase start` fails** → Make sure Docker Desktop is running.
 
-**Magic link goes to localhost instead of prod** → Update Site URL in Supabase Auth settings to your Vercel URL.
+**Google login redirects to wrong URL** → Check that `http://localhost:54321/auth/v1/callback` is in your Google OAuth redirect URIs for local dev, or `https://<project>.supabase.co/auth/v1/callback` for production.
 
-**Google login not working** → Double-check the redirect URI in Google Cloud Console matches exactly: `https://<project-id>.supabase.co/auth/v1/callback`
+**"Missing Supabase environment variables"** → Check `.env.local` exists and has both vars filled in.
 
-**Members can't see each other's stats** → Make sure they joined the same team (same invite code). Check Supabase → Table Editor → profiles to verify team_id is set.
+**Hot reload not working in Docker** → The `CHOKIDAR_USEPOLLING=true` env var in `docker-compose.yml` handles macOS file-watch. If it still doesn't work, try `docker compose down && docker compose up --build`.
+
+**Members can't see each other's stats** → Verify they joined the same team (same invite code). Check Supabase Studio → Table Editor → profiles to confirm `team_id` is set.
+
+**`supabase db reset` fails** → Usually a migration syntax error. Check the error output and fix `supabase/migrations/20260606000000_initial.sql`.
