@@ -30,8 +30,8 @@ export default function Login() {
       <div className="login-card">
         <div className="login-logo">
           <span className="logo-icon">🕵️</span>
-          <h1>Codenames</h1>
-          <p className="logo-sub">Team Tracker</p>
+          <h1>Brush Pass</h1>
+          <p className="logo-sub">Stat Tracker</p>
         </div>
 
         <button className="btn-google" onClick={handleGoogle}>

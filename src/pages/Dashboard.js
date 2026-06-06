@@ -73,7 +73,7 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
-      <AppHeader title="Codenames">
+      <AppHeader title="Brush Pass">
         {isAnyAdmin && <Link to="/admin" className="nav-link">Admin</Link>}
         <Link to="/history" className="nav-link">History</Link>
         <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
