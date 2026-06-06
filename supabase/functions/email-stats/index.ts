@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     </table>
 
     <p style="color:#444;font-size:0.78rem;border-top:1px solid #222;padding-top:16px">
-      Sent by Codenames Tracker · Requested by ${escapeHtml(callerProfile.display_name ?? adminEmail)}
+      Sent by Brush Pass · Requested by ${escapeHtml(callerProfile.display_name ?? adminEmail)}
     </p>
   </div>
 </body>
@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Codenames Tracker <onboarding@resend.dev>',
+      from: 'Brush Pass <onboarding@resend.dev>',
       to: [adminEmail],
       subject: `📊 ${teamName} Stats Backup — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
       html,
