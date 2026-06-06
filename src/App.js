@@ -5,6 +5,7 @@ import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import LogGame from './pages/LogGame'
 import Admin from './pages/Admin'
+import GameHistory from './pages/GameHistory'
 import './App.css'
 
 function AppRoutes() {
@@ -26,6 +27,7 @@ function AppRoutes() {
       <Route path="/" element={<Dashboard />} />
       <Route path="/log" element={<LogGame />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/history" element={<GameHistory />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

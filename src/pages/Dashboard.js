@@ -73,6 +73,7 @@ export default function Dashboard() {
         {profile?.is_admin && (
           <Link to="/admin" className="nav-link">Admin</Link>
         )}
+        <Link to="/history" className="nav-link">History</Link>
         <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
         <button onClick={signOut} className="nav-link sign-out-btn">Sign out</button>
       </AppHeader>
