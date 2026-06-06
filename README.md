@@ -1,6 +1,6 @@
-# Codenames Tracker
+# Brush Pass
 
-A stat tracker for recurring [Codenames](https://czechgames.com/en/codenames/) groups. Log games, track wins and losses per player and role, and watch the leaderboard update in real time.
+A stat tracker for recurring spy word game groups. Log games, track wins and losses per player and role, and watch the leaderboard update in real time.
 
 Built for groups that play regularly and want to settle arguments about who the best spymaster actually is.
 
@@ -81,7 +81,7 @@ function_rate_limits (one row per admin, tracks last email send)
 Key design decisions:
 
 - **`profiles.id` has no FK to `auth.users`** — ghost (angel) members are inserted with a random UUID that has no corresponding auth row, so the FK would fail.
-- **RLS everywhere** — all data access is scoped to the user's team via helper functions `my_team_id()` and `i_am_admin()` (both `security definer` to avoid recursive policy evaluation).
+- **RLS everywhere** — all data access is scoped to the user's teams via helper functions `my_team_ids()` and `i_am_admin_of(team_id)` (both `security definer` to avoid recursive policy evaluation).
 - **`stat_seeds` merges at read time** — historical stats are not mixed into `game_players`; `computeStats()` in `src/lib/stats.js` adds seed totals to logged totals before sorting.
 
 ### Auth flow
@@ -195,4 +195,4 @@ Docker Desktop must be running. Check with `docker info`.
 The `CHOKIDAR_USEPOLLING=true` env var in `docker-compose.yml` handles macOS file watching. If changes still don't appear, try `make build` then `make dev`.
 
 **Members can't see each other's stats**
-They must have joined the same team (same invite code). Check Supabase Studio → Table Editor → profiles to confirm `team_id` is set.
+They must have joined the same team (same invite code). Check Supabase Studio → Table Editor → team_members to confirm a row exists for their profile and the correct team.

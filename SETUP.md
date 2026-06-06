@@ -1,4 +1,4 @@
-# Codenames Tracker — Setup Guide
+# Brush Pass — Setup Guide
 
 Two paths: **local dev** (Docker, everything on your machine) or **cloud deploy** (Supabase + Vercel).
 
@@ -156,7 +156,7 @@ In Supabase → **Settings → API**, copy:
 
 ### Step 7 — Update allowed redirect URLs
 
-Once you have your Vercel URL (e.g. `https://codenames-tracker.vercel.app`):
+Once you have your Vercel URL (e.g. `https://brushpass.vercel.app`):
 
 1. Supabase → **Authentication → URL Configuration**
    - Set **Site URL** to your Vercel URL
@@ -175,6 +175,6 @@ Once you have your Vercel URL (e.g. `https://codenames-tracker.vercel.app`):
 
 **Hot reload not working in Docker** → The `CHOKIDAR_USEPOLLING=true` env var in `docker-compose.yml` handles macOS file-watch. If it still doesn't work, try `docker compose down && docker compose up --build`.
 
-**Members can't see each other's stats** → Verify they joined the same team (same invite code). Check Supabase Studio → Table Editor → profiles to confirm `team_id` is set.
+**Members can't see each other's stats** → Verify they joined the same team (same invite code). Check Supabase Studio → Table Editor → team_members to confirm a row exists for their profile and the correct team.
 
 **`supabase db reset` fails** → Usually a migration syntax error. Check the error output and fix `supabase/migrations/20260606000000_initial.sql`.
