@@ -75,6 +75,7 @@ export default function Dashboard() {
     <div className="app-shell">
       <AppHeader title="Brush Pass">
         {isAnyAdmin && <Link to="/admin" className="nav-link">Admin</Link>}
+        <Link to="/play" className="nav-link">Play</Link>
         <Link to="/history" className="nav-link">History</Link>
         <Link to="/log" className="nav-link btn-log">+ Log Game</Link>
         <button onClick={signOut} className="nav-link sign-out-btn">Sign out</button>

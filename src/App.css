@@ -846,3 +846,238 @@ select option { background: var(--surface2); color: var(--text); }
   border: none;
   outline: none;
 }
+/* ============================================================
+   PLAY — lobby list
+============================================================ */
+.play-game-list { display: flex; flex-direction: column; gap: 10px; }
+
+.play-game-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-family: var(--font);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+  width: 100%;
+}
+.play-game-row:hover { background: var(--surface2); border-color: var(--accent); }
+
+.play-game-row-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.play-game-row-status { font-weight: 700; font-size: 0.9rem; }
+.play-game-row-time { color: var(--muted); font-size: 0.78rem; font-family: var(--mono); white-space: nowrap; }
+
+.play-status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.play-status-dot.lobby { background: var(--accent); }
+.play-status-dot.active { background: var(--green); box-shadow: 0 0 0 3px var(--accent-dim); }
+.play-status-dot.finished { background: var(--muted); }
+
+.play-game-row-counts { display: flex; gap: 10px; flex-shrink: 0; }
+.play-side-count { font-size: 0.82rem; font-weight: 600; font-family: var(--mono); }
+.play-side-count.red { color: var(--red); }
+.play-side-count.blue { color: var(--blue); }
+
+/* ============================================================
+   PLAY — lobby (roster / join)
+============================================================ */
+.play-roster-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 600px) { .play-roster-grid { grid-template-columns: 1fr; } }
+
+.play-roster-col {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface2);
+}
+.play-roster-red { border-color: rgba(232,84,84,0.3); }
+.play-roster-blue { border-color: rgba(84,144,232,0.3); }
+
+.play-roster-heading { font-size: 1rem; font-weight: 800; margin-bottom: 14px; }
+
+.play-roster-role { margin-bottom: 14px; }
+.play-roster-role:last-child { margin-bottom: 0; }
+.play-roster-role-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.play-roster-names { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.play-roster-names li { font-size: 0.88rem; font-weight: 600; }
+.play-roster-names li.play-roster-me { color: var(--accent); }
+.play-roster-empty { color: var(--muted) !important; font-weight: 400 !important; font-style: italic; }
+.play-roster-tag { font-size: 0.78rem; color: var(--accent); font-weight: 700; }
+
+.play-lobby-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* ============================================================
+   PLAY — active game
+============================================================ */
+.play-active, .play-finished { display: flex; flex-direction: column; gap: 20px; }
+
+.play-score-bar { display: flex; gap: 12px; }
+.play-score {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  font-weight: 700;
+  transition: border-color 0.2s, background 0.2s;
+}
+.play-score-label { font-size: 0.9rem; }
+.play-score-value { font-family: var(--mono); font-size: 1.2rem; }
+.play-score-red .play-score-value { color: var(--red); }
+.play-score-blue .play-score-value { color: var(--blue); }
+.play-score-red.play-score-active { border-color: var(--red); background: var(--red-dim); }
+.play-score-blue.play-score-active { border-color: var(--blue); background: var(--blue-dim); }
+
+.play-turn-banner { display: flex; justify-content: center; }
+.play-turn-pill {
+  display: inline-block;
+  padding: 8px 22px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.play-turn-red { background: var(--red-dim); color: var(--red); }
+.play-turn-blue { background: var(--blue-dim); color: var(--blue); }
+
+.play-clue-banner {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  text-align: center;
+}
+.play-clue-word { font-size: 1.3rem; font-weight: 800; color: var(--accent); }
+.play-clue-number { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; }
+.play-clue-by { color: var(--muted); font-size: 0.82rem; }
+
+.play-board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+@media (max-width: 560px) { .play-board { gap: 6px; } }
+
+.play-card {
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface2), var(--surface));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  font-family: var(--font);
+  cursor: default;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.play-card-word {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  color: var(--text);
+  text-align: center;
+  word-break: break-word;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.play-card-icon { font-size: 1rem; line-height: 1; }
+
+.play-card-tappable { cursor: pointer; }
+.play-card-tappable:hover {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--surface2), var(--accent-dim));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
+}
+.play-card-tappable:active { transform: translateY(0) scale(0.97); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+
+/* Spymaster hints — a soft tinted glow rather than a hard ring, so the
+   board still reads as "cards" and not a key sheet */
+.play-card-hint {
+  border-width: 1px;
+  box-shadow: inset 0 0 0 1px transparent, 0 0 0 3px transparent;
+}
+.play-card-hint-red { background: linear-gradient(180deg, var(--surface2), var(--red-dim)); border-color: rgba(232,84,84,0.55); box-shadow: 0 0 0 1px rgba(232,84,84,0.3); }
+.play-card-hint-blue { background: linear-gradient(180deg, var(--surface2), var(--blue-dim)); border-color: rgba(84,144,232,0.55); box-shadow: 0 0 0 1px rgba(84,144,232,0.3); }
+.play-card-hint-neutral { border-color: var(--border); }
+.play-card-hint-assassin { background: linear-gradient(180deg, var(--surface2), var(--surface2)); border-color: var(--text); box-shadow: 0 0 0 1px rgba(255,255,255,0.12); }
+
+.play-card-revealed {
+  cursor: default;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.12);
+}
+.play-card-revealed .play-card-word { opacity: 0.55; }
+.play-card-red { background: linear-gradient(180deg, var(--red-dim), transparent 140%); border-color: var(--red); }
+.play-card-blue { background: linear-gradient(180deg, var(--blue-dim), transparent 140%); border-color: var(--blue); }
+.play-card-neutral { background: var(--surface2); border-color: var(--border); }
+.play-card-neutral .play-card-word { opacity: 0.4; }
+.play-card-assassin { background: var(--text); border-color: var(--text); }
+.play-card-assassin .play-card-word { color: var(--bg); opacity: 0.85; }
+
+.play-clue-form { display: flex; gap: 10px; align-items: center; }
+
+.play-event-log {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.play-event-log ul { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.play-event-log li { font-size: 0.85rem; }
+.play-event-red { color: var(--red); }
+.play-event-blue { color: var(--blue); }
+.play-event-neutral { color: var(--muted); }
+
+/* ============================================================
+   PLAY — finished
+============================================================ */
+.play-winner-banner {
+  text-align: center;
+  padding: 32px 20px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--surface);
+}
+.play-winner-banner h2 { font-size: 1.6rem; font-weight: 800; margin: 8px 0 6px; }
+.play-winner-emoji { font-size: 2.2rem; }
+.play-winner-red { border-color: var(--red); background: var(--red-dim); }
+.play-winner-blue { border-color: var(--blue); background: var(--blue-dim); }

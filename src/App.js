@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard'
 import LogGame from './pages/LogGame'
 import Admin from './pages/Admin'
 import GameHistory from './pages/GameHistory'
+import PlayLobby from './pages/PlayLobby'
+import PlayGame from './pages/PlayGame'
 import './App.css'
 
 function AppRoutes() {
@@ -28,6 +30,8 @@ function AppRoutes() {
       <Route path="/log" element={<LogGame />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/history" element={<GameHistory />} />
+      <Route path="/play" element={<PlayLobby />} />
+      <Route path="/play/:gameId" element={<PlayGame />} />
       <Route path="/teams/new" element={<Onboarding />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
