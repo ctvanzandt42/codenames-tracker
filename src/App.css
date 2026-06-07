@@ -957,7 +957,8 @@ select option { background: var(--surface2); color: var(--text); }
 .play-score-red.play-score-active { border-color: var(--red); background: var(--red-dim); }
 .play-score-blue.play-score-active { border-color: var(--blue); background: var(--blue-dim); }
 
-.play-turn-banner { display: flex; justify-content: center; }
+.play-turn-banner { display: flex; justify-content: center; align-items: center; position: relative; }
+.play-turn-banner .sign-out-btn { position: absolute; right: 0; font-size: 0.78rem; padding: 6px 12px; }
 .play-turn-pill {
   display: inline-block;
   padding: 8px 22px;

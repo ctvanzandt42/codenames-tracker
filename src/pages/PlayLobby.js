@@ -60,7 +60,7 @@ export default function PlayLobby() {
 
   const lobbyGames = games.filter(g => g.status === 'lobby')
   const activeGames = games.filter(g => g.status === 'active')
-  const finishedGames = games.filter(g => g.status === 'finished')
+  const finishedGames = games.filter(g => g.status === 'finished' || g.status === 'cancelled')
 
   return (
     <div className="app-shell">
@@ -144,6 +144,7 @@ function PlayGameRow({ game, onClick }) {
     lobby: 'Waiting for players',
     active: 'In progress',
     finished: game.winner ? `${game.winner.toUpperCase()} won` : 'Finished',
+    cancelled: 'Cancelled',
   }[game.status]
 
   return (
