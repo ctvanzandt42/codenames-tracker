@@ -9,7 +9,7 @@ const COLOR_EMOJI = { red: '🔴', blue: '🔵', neutral: '⚪', assassin: '💀
 
 export default function PlayGame() {
   const { gameId } = useParams()
-  const { profile } = useAuth()
+  const { profile, isAdminOf } = useAuth()
   const navigate = useNavigate()
 
   const [game, setGame] = useState(null)
@@ -82,6 +82,7 @@ export default function PlayGame() {
   }, [gameId, loadPlayers, loadEvents])
 
   const me = useMemo(() => players.find(p => p.profile_id === profile?.id), [players, profile])
+  const canCancel = !!game && (game.created_by === profile?.id || isAdminOf(game.team_id))
 
   // Fetch the secret key once we know we're a spymaster on an active/finished game
   useEffect(() => {
@@ -123,6 +124,15 @@ export default function PlayGame() {
     setBusy(true)
     setError('')
     const { error: rpcErr } = await supabase.rpc('start_live_game', { p_game_id: gameId })
+    setBusy(false)
+    if (rpcErr) setError(rpcErr.message)
+  }
+
+  async function cancelGame() {
+    if (!window.confirm('Cancel this game? It will be removed with no effect on stats.')) return
+    setBusy(true)
+    setError('')
+    const { error: rpcErr } = await supabase.rpc('cancel_live_game', { p_game_id: gameId })
     setBusy(false)
     if (rpcErr) setError(rpcErr.message)
   }
@@ -176,20 +186,25 @@ export default function PlayGame() {
 
         {game.status === 'lobby' && (
           <LobbyView
-            game={game} players={players} me={me} busy={busy}
-            onJoin={joinAs} onLeave={leaveGame} onStart={startGame}
+            game={game} players={players} me={me} busy={busy} canCancel={canCancel}
+            onJoin={joinAs} onLeave={leaveGame} onStart={startGame} onCancel={cancelGame}
           />
         )}
 
         {game.status === 'active' && (
           <ActiveView
             game={game} players={players} me={me} events={events} secretKey={secretKey}
-            busy={busy} onSubmitClue={submitClue} onTapCard={tapCard}
+            busy={busy} canCancel={canCancel}
+            onSubmitClue={submitClue} onTapCard={tapCard} onCancel={cancelGame}
           />
         )}
 
         {game.status === 'finished' && (
           <FinishedView game={game} players={players} events={events} navigate={navigate} />
+        )}
+
+        {game.status === 'cancelled' && (
+          <CancelledView navigate={navigate} />
         )}
       </main>
     </div>
@@ -202,7 +217,7 @@ function BackBtn({ navigate }) {
 
 // ── Lobby ────────────────────────────────────────────────────────────────────
 
-function LobbyView({ game, players, me, busy, onJoin, onLeave, onStart }) {
+function LobbyView({ game, players, me, busy, canCancel, onJoin, onLeave, onStart, onCancel }) {
   const sides = ['red', 'blue']
   const canStart = sides.every(side =>
     players.some(p => p.side === side && p.role === 'spymaster') &&
@@ -233,6 +248,9 @@ function LobbyView({ game, players, me, busy, onJoin, onLeave, onStart }) {
         <div className="play-lobby-actions">
           {me && (
             <button className="nav-link sign-out-btn" disabled={busy} onClick={onLeave}>Leave game</button>
+          )}
+          {canCancel && (
+            <button className="nav-link sign-out-btn" disabled={busy} onClick={onCancel}>Cancel game</button>
           )}
           <button className="btn-magic" style={{ width: 'auto', padding: '11px 28px' }}
             disabled={busy || !canStart} onClick={onStart}>
@@ -272,7 +290,7 @@ function RosterRole({ label, roleKey, side, players, me, busy, onJoin, singleSlo
 
 // ── Active ───────────────────────────────────────────────────────────────────
 
-function ActiveView({ game, players, me, events, secretKey, busy, onSubmitClue, onTapCard }) {
+function ActiveView({ game, players, me, events, secretKey, busy, canCancel, onSubmitClue, onTapCard, onCancel }) {
   const isSpymaster = me?.role === 'spymaster'
   const isMyTurn = me?.side === game.current_turn
   const totals = useMemo(() => sideTotals(game, secretKey), [game, secretKey])
@@ -294,6 +312,9 @@ function ActiveView({ game, players, me, events, secretKey, busy, onSubmitClue, 
 
       <div className="play-turn-banner">
         <span className={`play-turn-pill play-turn-${game.current_turn}`}>{banner}</span>
+        {canCancel && (
+          <button className="nav-link sign-out-btn" disabled={busy} onClick={onCancel}>Cancel game</button>
+        )}
       </div>
 
       {lastClue && (
@@ -480,6 +501,26 @@ function FinishedView({ game, players, events, navigate }) {
       </div>
 
       <EventLog events={events} />
+    </div>
+  )
+}
+
+// ── Cancelled ────────────────────────────────────────────────────────────────
+
+function CancelledView({ navigate }) {
+  return (
+    <div className="play-finished">
+      <div className="play-winner-banner">
+        <span className="play-winner-emoji">🚫</span>
+        <h2>Game cancelled</h2>
+        <p className="muted">No stats were recorded for this game.</p>
+      </div>
+
+      <div className="play-lobby-actions">
+        <button className="btn-magic" style={{ width: 'auto', padding: '11px 28px' }} onClick={() => navigate('/play')}>
+          Back to Lobbies
+        </button>
+      </div>
     </div>
   )
 }

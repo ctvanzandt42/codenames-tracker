@@ -11,6 +11,7 @@
 -- ============================================================
 -- OPTIONAL CLEAN SLATE (uncomment if re-running on existing DB)
 -- ============================================================
+-- drop function if exists public.cancel_live_game(uuid);
 -- drop function if exists public.reveal_card(uuid, int);
 -- drop function if exists public.finish_live_game(uuid, text);
 -- drop function if exists public.start_live_game(uuid);
@@ -363,7 +364,7 @@ create policy "words_delete_own_team" on public.words
 create table public.live_games (
   id            uuid primary key default gen_random_uuid(),
   team_id       uuid not null references public.teams(id) on delete cascade,
-  status        text not null default 'lobby' check (status in ('lobby', 'active', 'finished')),
+  status        text not null default 'lobby' check (status in ('lobby', 'active', 'finished', 'cancelled')),
   grid          text[] not null default '{}',   -- 25 words, public
   revealed      text[] not null default '{}',   -- index-aligned; null until tapped, then 'red'/'blue'/'neutral'/'assassin'
   starting_side text check (starting_side in ('red', 'blue')),
@@ -715,6 +716,49 @@ $$;
 
 revoke all on function public.reveal_card(uuid, int) from public;
 grant execute on function public.reveal_card(uuid, int) to authenticated;
+
+
+-- ── cancel_live_game(): host/admin can drop a lobby or in-progress game ──────
+-- Cancelled games record no winner and mirror nothing into games/game_players —
+-- they have zero effect on stats. Players closing their browser does NOT
+-- cancel a game; live_game_players rows persist until someone explicitly leaves.
+
+create or replace function public.cancel_live_game(p_game_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_team_id uuid;
+  v_status  text;
+  v_host    uuid;
+begin
+  select team_id, status, created_by into v_team_id, v_status, v_host
+  from public.live_games where id = p_game_id
+  for update;
+
+  if v_status not in ('lobby', 'active') then
+    raise exception 'Only an open lobby or in-progress game can be cancelled';
+  end if;
+
+  if auth.uid() is distinct from v_host and not i_am_admin_of(v_team_id) then
+    raise exception 'Only the host or a team admin can cancel the game';
+  end if;
+
+  update public.live_games
+  set status = 'cancelled', finished_at = now()
+  where id = p_game_id;
+
+  if v_status = 'active' then
+    insert into public.live_game_events (game_id, type, payload)
+    values (p_game_id, 'game_over', jsonb_build_object('cancelled', true));
+  end if;
+end;
+$$;
+
+revoke all on function public.cancel_live_game(uuid) from public;
+grant execute on function public.cancel_live_game(uuid) to authenticated;
 
 
 -- ── Realtime ─────────────────────────────────────────────────────────────────
